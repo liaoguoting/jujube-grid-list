@@ -1,4 +1,3 @@
-// @ts-ignore
 import React from 'react';
 
 export interface GridListProps {
@@ -11,8 +10,10 @@ export interface GridListProps {
   className?: string,
   outerRef?: (ref:any)=> any,
   itemKey?: ()=>any,
-  initialScrollTop?: number
+  initialScrollTop?: number,
+  headerComponent?: Element,
+  footerComponent?: Element
 }
 
 declare const GridList: React.SFC<GridListProps>;
-export default GridList
+export default GridList;

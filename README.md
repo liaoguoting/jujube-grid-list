@@ -8,6 +8,8 @@
   - list：需要传入的列表数据
   - listCount：列表长度
   - overscanRowCount：额外渲染行个数
+  - loading: 加载中
+  - headerComponent / footerComponent：嵌套元素
 - 可选项：
   - className: 为列表增加一个可选的className
   - outerRef：列表ref挂载

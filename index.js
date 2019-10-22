@@ -1,4 +1,5 @@
-import { createElement, PureComponent } from 'react';
+import React, { createElement, PureComponent } from 'react';
+
 const defaultItemKey = ({ columnIndex, data, rowIndex }) =>
   `${rowIndex}:${columnIndex}`;
 
@@ -12,7 +13,8 @@ export default class GridList extends PureComponent {
     width: 0,
     columnWidth: 0,
     estimatedTotalHeight: 0,
-    rowCount: 0
+    rowCount: 0,
+    extraHeight: 0,
   };
 
   scrollTo({ scrollTop }) {
@@ -60,19 +62,18 @@ export default class GridList extends PureComponent {
     }
   }
 
-  constructor(props) {
-    super(props);
-    const { itemCount, columnCount, rowHeight } = this.props;
+  componentDidMount() {
+    this.setState({
+      extraHeight: this.header.offsetHeight,
+    });
     const windowWidth = window.innerWidth;
+    const { itemCount, columnCount, rowHeight } = this.props;
     this.setState({
       width: windowWidth,
       columnWidth: windowWidth / columnCount,
       rowCount: Math.ceil(itemCount / columnCount),
       estimatedTotalHeight: (Math.ceil(itemCount / columnCount)) * rowHeight
     });
-  }
-
-  componentDidMount() {
     const { initialScrollTop } = this.props;
     if (this._outerRef !== null) {
       const outerRef = this._outerRef;
@@ -83,7 +84,7 @@ export default class GridList extends PureComponent {
   }
 
   componentDidUpdate() {
-    const { scrollTop, scrollUpdateWasRequested } = this.state;
+    const { scrollTop, scrollUpdateWasRequested, extraHeight } = this.state;
 
     if (scrollUpdateWasRequested && this._outerRef !== null) {
       const outerRef = this._outerRef;
@@ -99,7 +100,8 @@ export default class GridList extends PureComponent {
 
   componentWillReceiveProps(nextProps) {
     const { itemCount, columnCount, rowHeight } = nextProps;
-    if (itemCount === this.props.itemCount) {
+    const { itemCount: prevCount } = this.props;
+    if (itemCount === prevCount) {
       return null;
     }
     this.setState({
@@ -109,10 +111,11 @@ export default class GridList extends PureComponent {
   }
 
   render() {
-    const { children, className, height, columnCount = 3, list, itemCount, itemKey = defaultItemKey } = this.props;
-    const { isScrolling, width, estimatedTotalHeight } = this.state;
+    const { children, className, height, columnCount = 3, list, itemCount, itemKey = defaultItemKey, headerComponent, footerComponent, loading } = this.props;
+    const { isScrolling, width, estimatedTotalHeight, extraHeight } = this.state;
     const [rowStartIndex, rowStopIndex] = this._getVerticalRangeToRender();
     const items = [];
+    const itemsIndex = [];
 
     if (itemCount) {
       for (
@@ -135,6 +138,7 @@ export default class GridList extends PureComponent {
               style: this._getItemStyle(rowIndex, columnIndex)
             })
           );
+          itemsIndex.push(columnIndex + rowIndex * 3);
         }
       }
     }
@@ -149,10 +153,21 @@ export default class GridList extends PureComponent {
           height,
           width,
           overflow: 'auto',
+          paddingTop: extraHeight,
           WebkitOverflowScrolling: 'touch',
           willChange: 'transform',
         }
       },
+      createElement('div', {
+        children: headerComponent,
+        ref: e => (this.header = e),
+        style: {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0
+        }
+      }),
       createElement('div', {
         children: items,
         style: {
@@ -160,7 +175,8 @@ export default class GridList extends PureComponent {
           pointerEvents: isScrolling ? 'none' : undefined,
           width
         }
-      })
+      }),
+      loading ? footerComponent : null
     );
   }
 
@@ -176,14 +192,14 @@ export default class GridList extends PureComponent {
 
   _getVerticalRangeToRender() {
     const { overscanRowCount, itemCount, height, rowHeight } = this.props;
-    const { isScrolling, verticalScrollDirection, scrollTop, rowCount } = this.state;
+    const { isScrolling, verticalScrollDirection, scrollTop, rowCount, extraHeight } = this.state;
     const overscanCountResolved = overscanRowCount || 1;
 
     if (itemCount === 0) {
       return [0, 0, 0, 0];
     }
 
-    const startIndex = Math.max(0, Math.min(rowCount - 1, Math.floor(scrollTop / rowHeight)));
+    const startIndex = Math.max(0, Math.min(rowCount - 1, Math.floor((scrollTop - extraHeight) / rowHeight)));
     const stopIndex = (function () {
       const top = startIndex * rowHeight;
       const numVisibleRows = Math.ceil((height + scrollTop - top) / rowHeight);
@@ -203,7 +219,6 @@ export default class GridList extends PureComponent {
       !isScrolling || verticalScrollDirection === 'forward' ?
         Math.max(1, overscanCountResolved) :
         1;
-
     return [
       Math.max(0, startIndex - overscanBackward),
       Math.max(0, Math.min(rowCount - 1, stopIndex + overscanForward)),
@@ -213,7 +228,7 @@ export default class GridList extends PureComponent {
   }
 
   _getItemStyle = (rowIndex, columnIndex) => {
-    const { columnWidth } = this.state;
+    const { columnWidth, extraHeight } = this.state;
     const { rowHeight } = this.props;
     const itemStyleCache = this._getItemStyleCache();
     const key = `${rowIndex}:${columnIndex}`;
@@ -225,7 +240,7 @@ export default class GridList extends PureComponent {
       style = {
         position: 'absolute',
         left: columnWidth * columnIndex,
-        top: rowHeight * rowIndex,
+        top: extraHeight + rowHeight * rowIndex,
         height: rowHeight,
         width: columnWidth
       };
